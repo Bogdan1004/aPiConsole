@@ -199,7 +199,7 @@ class Auth:
 
 
 def client_address(headers, client) -> str:
-    """The visitor's address, also behind a Cloudflare / Tailscale tunnel (which connect from localhost)."""
+    """The visitor's address, also behind a tunnel such as Tailscale Funnel (which connects from localhost)."""
     for header in ("cf-connecting-ip", "x-forwarded-for"):
         if headers.get(header):
             return headers[header].split(",")[0].strip()

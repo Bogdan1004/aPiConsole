@@ -100,9 +100,8 @@ motivul alegerii. Claude face lista o dată pe zi (cache); fără cheie, totul v
 - **Link de share** pentru orice fișier, valabil 7 zile (`/s/<token>`), fără cont.
 - Upload-urile dau XP și trofeul **Cloud Keeper** (10 fișiere).
 - **Acces din afara casei:** cu [Tailscale](https://tailscale.com) (gratuit), o rețea privată între Pi și
-  dispozitivele tale, fără porturi deschise în router. Pe Pi: `curl -fsSL https://tailscale.com/install.sh | sh`,
-  apoi `sudo tailscale up`; instalezi aplicația și pe telefon/laptop, cu același cont. Drive-ul afișează
-  adresa la care îl găsești de oriunde.
+  dispozitivele tale, fără porturi deschise în router: `scripts/setup-tailscale.sh` (vezi mai jos).
+  Instalezi aplicația și pe telefon/laptop, cu același cont. Drive-ul afișează adresa de oriunde.
 
 ## Profiluri, PIN și modul Guest (demo online în siguranță)
 
@@ -121,20 +120,23 @@ motivul alegerii. Claude face lista o dată pe zi (cache); fără cheie, totul v
   Claude forțate pe oră pentru jucători.
 - Fiecare cerere e verificată pe hub: profilul din cerere trebuie să fie cel logat.
 
-**Ca să arăți consola online**, nu deschide porturi în router. Variante, de la cea mai sigură:
-1. **Tailscale**: îi dai profesorului acces doar la Pi, nimic nu e public.
-2. **Cloudflare Tunnel + Cloudflare Access**: adresă HTTPS publică, dar intră doar emailurile permise.
-3. **Link public de demo (Cloudflare quick tunnel)**, gratuit, fără cont și fără sudo:
+**Acces de oriunde și link public de demo, cu Tailscale** (gratuit, fără porturi deschise în router):
 
-   ```
-   scripts/public-link.sh start   # pornește și afișează https://….trycloudflare.com
-   scripts/public-link.sh url     # arată link-ul curent
-   scripts/public-link.sh stop    # închide accesul din afară
-   ```
+```
+scripts/setup-tailscale.sh
+```
 
-   Vizitatorii pot intra doar ca Guest (read-only). Bogdan și Alex cer PIN-ul, iar un prim PIN nu se poate
-   crea prin link. Link-ul se schimbă la fiecare pornire, nu pornește singur la boot și apare și în
-   Cloud Drive → Access from anywhere.
+Scriptul instalează Tailscale din depozitul oficial (cere parola sudo o dată), conectează Pi-ul la contul tău
+(link de login în browser) și pornește **Funnel**. Rezultatul:
+
+- **Acces privat**: de pe telefonul sau laptopul tău, cu aplicația Tailscale logată în același cont, consola
+  e la `http://apiconsole:8420`, de oriunde. Pe cineva anume (de exemplu profesorul) îl inviți din
+  contul Tailscale și ajunge doar la acest Pi.
+- **Link public fix**: `https://apiconsole.<tailnet>.ts.net`, același și după repornire. Vizitatorii pot intra
+  doar ca **Guest** (read-only); Bogdan și Alex cer PIN-ul, iar un prim PIN nu se poate crea prin link.
+  Apare și în Cloud Drive → Access from anywhere.
+- Oprești link-ul public (accesul privat rămâne) cu `tailscale funnel --https=443 off` și îl repornești cu
+  `tailscale funnel --bg 8420`.
 
 ## Game Store
 
