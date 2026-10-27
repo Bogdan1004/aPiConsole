@@ -77,6 +77,7 @@ PIN_TRIES_ANYWHERE = (10, 3600)  # and per profile from anywhere (addresses can 
 class Session:
     profile_id: str
     expires_at: float
+    key: str = ""  # per signed-in device: every visitor using Guest gets their own limits
 
     @property
     def guest(self) -> bool:
@@ -166,7 +167,7 @@ class Auth:
         row = self.db.one("SELECT profile_id, expires_at FROM sessions WHERE token_hash=?", (_token_hash(token),))
         if not row or row["expires_at"] < time.time():
             return None
-        return Session(row["profile_id"], row["expires_at"])
+        return Session(row["profile_id"], row["expires_at"], _token_hash(token)[:16])
 
     def end(self, token: str | None) -> None:
         if token:
@@ -188,11 +189,13 @@ class Auth:
 
     def allow(self, session: Session, bucket: str) -> bool:
         limits = GUEST_LIMITS if session.guest else LIMITS
-        if bucket == "chat" and session.guest and not self.limiter.hit(("chat_day", session.profile_id), *GUEST_LIMITS["chat_day"]):
+        # All guests together get 40 chat messages a day, so visitors can't keep the Pi's CPU busy.
+        if bucket == "chat" and session.guest and not self.limiter.hit(("chat_day", GUEST), *GUEST_LIMITS["chat_day"]):
             return False
         if bucket not in limits:
             return True
-        return self.limiter.hit((bucket, session.profile_id), *limits[bucket])
+        who = session.key if session.guest else session.profile_id
+        return self.limiter.hit((bucket, who), *limits[bucket])
 
 
 def client_address(headers, client) -> str:

@@ -153,7 +153,10 @@ def health():
 
 @app.get("/api/system")
 def system_stats():
-    return system.stats(settings.storage_root)
+    stats = system.stats(settings.storage_root)
+    if _guest():  # visitors don't need the Pi's address or folders
+        stats = {**stats, "ip": None, "hostname": "aPiStation", "storage": {**stats["storage"], "path": ""}}
+    return stats
 
 
 # ---------- profiles & gamification ----------

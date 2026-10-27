@@ -124,8 +124,17 @@ motivul alegerii. Claude face lista o dată pe zi (cache); fără cheie, totul v
 **Ca să arăți consola online**, nu deschide porturi în router. Variante, de la cea mai sigură:
 1. **Tailscale**: îi dai profesorului acces doar la Pi, nimic nu e public.
 2. **Cloudflare Tunnel + Cloudflare Access**: adresă HTTPS publică, dar intră doar emailurile permise.
-3. **Tailscale Funnel / Cloudflare quick tunnel**: link public. Merge pentru că Guest e read-only, dar
-   setează întâi PIN-urile pentru Bogdan și Alex.
+3. **Link public de demo (Cloudflare quick tunnel)**, gratuit, fără cont și fără sudo:
+
+   ```
+   scripts/public-link.sh start   # pornește și afișează https://….trycloudflare.com
+   scripts/public-link.sh url     # arată link-ul curent
+   scripts/public-link.sh stop    # închide accesul din afară
+   ```
+
+   Vizitatorii pot intra doar ca Guest (read-only). Bogdan și Alex cer PIN-ul, iar un prim PIN nu se poate
+   crea prin link. Link-ul se schimbă la fiecare pornire, nu pornește singur la boot și apare și în
+   Cloud Drive → Access from anywhere.
 
 ## Game Store
 

@@ -9,6 +9,7 @@ network between your own devices), which the hub only detects.
 
 import json
 import logging
+import re
 import secrets
 import shutil
 import subprocess
@@ -244,15 +245,27 @@ class Drive:
 
     # ---------- remote access ----------
     @staticmethod
+    def public_link() -> str | None:
+        """The Cloudflare demo link (scripts/public-link.sh) while that tunnel runs."""
+        try:
+            active = subprocess.run(["systemctl", "--user", "is-active", "apistation-tunnel.service"],
+                                    capture_output=True, text=True, timeout=3).stdout.strip() == "active"
+            log = (Path.home() / ".local/share/apistation/tunnel.log").read_text(errors="replace")
+        except (OSError, subprocess.SubprocessError):
+            return None
+        found = re.findall(r"https://[a-z0-9-]+\.trycloudflare\.com", log)
+        return found[-1] if active and found else None
+
+    @staticmethod
     def remote() -> dict:
         """Tailscale status, if it is installed (it gives the drive a private address reachable from anywhere)."""
         if not shutil.which("tailscale"):
-            return {"tailscale": False}
+            return {"tailscale": False, "public": Drive.public_link()}
         try:
             out = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=3)
             data = json.loads(out.stdout or "{}")
         except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
             return {"tailscale": True, "connected": False}
         me = data.get("Self") or {}
-        return {"tailscale": True, "connected": data.get("BackendState") == "Running",
+        return {"tailscale": True, "connected": data.get("BackendState") == "Running", "public": Drive.public_link(),
                 "name": (me.get("DNSName") or "").rstrip("."), "ips": me.get("TailscaleIPs") or []}

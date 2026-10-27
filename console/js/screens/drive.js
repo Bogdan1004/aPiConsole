@@ -184,11 +184,12 @@ export default {
 
     const paintRemote = (remote) => {
       const host = `${store.health?.hostname || 'apiconsole'}.local:${location.port || 8420}`;
-      remoteEl.innerHTML = remote?.connected
+      const publicLink = remote?.public ? `<p class="muted">Public demo link, Guest only: <b class="num">${esc(remote.public)}</b></p>` : '';
+      remoteEl.innerHTML = (remote?.connected
         ? `<div class="row-title">${icon('wifi', 24)} Access from anywhere <span class="tag ok">Tailscale on</span></div>
            <p class="muted">On your phone or laptop with Tailscale: <b class="num">http://${esc(remote.name || remote.ips?.[0] || '')}:${location.port || 8420}</b></p>`
-        : `<div class="row-title">${icon('wifi', 24)} Access from anywhere <span class="tag">${remote?.tailscale ? 'Tailscale off' : 'Home network only'}</span></div>
-           <p class="muted">At home: <b class="num">http://${esc(host)}</b>. Outside, install Tailscale (free, private) on the Pi and your devices; see README.</p>`;
+        : `<div class="row-title">${icon('wifi', 24)} Access from anywhere <span class="tag">${remote?.public ? 'Demo link on' : remote?.tailscale ? 'Tailscale off' : 'Home network only'}</span></div>
+           <p class="muted">At home: <b class="num">http://${esc(host)}</b>. Outside, install Tailscale (free, private) on the Pi and your devices; see README.</p>`) + publicLink;
     };
 
     const crumbsHtml = () => {
