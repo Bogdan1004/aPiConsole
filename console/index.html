@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>aPiStation</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23a78bfa'/><stop offset='1' stop-color='%2322d3ee'/></linearGradient></defs><rect width='64' height='64' rx='16' fill='%2307081a'/><text x='32' y='45' font-size='38' text-anchor='middle' fill='url(%23g)' font-family='sans-serif' font-weight='700'>π</text></svg>">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="bg" aria-hidden="true">
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+      <div class="blob b3"></div>
+      <canvas id="stars" width="960" height="540"></canvas>
+      <div class="grain"></div>
+      <div class="vignette"></div>
+    </div>
+    <main id="screen-host"></main>
+    <div id="nowplaying-host"></div>
+    <div id="yt-host" aria-hidden="true"><div id="yt-player"></div></div>
+    <div id="overlay-host"></div>
+    <div id="toast-host"></div>
+    <div id="trophy-host"></div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

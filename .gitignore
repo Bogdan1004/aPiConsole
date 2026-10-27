@@ -1,0 +1,5 @@
+hub/.venv/
+hub/data/
+hub/.env
+__pycache__/
+*.pyc

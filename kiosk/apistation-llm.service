@@ -1,0 +1,15 @@
+[Unit]
+Description=aPiStation local LLM (llama.cpp server with Qwen2.5 1.5B) for the assistant
+After=network.target
+
+[Service]
+ExecStart=%h/.local/share/apistation/llm/llama-server \
+  -m %h/.local/share/apistation/llm/models/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+  --host 127.0.0.1 --port 8421 -c 4096 -np 1 -t 4
+# Lower priority than the hub and the console, so the UI stays smooth while it thinks.
+Nice=8
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

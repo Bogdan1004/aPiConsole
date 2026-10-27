@@ -1,0 +1,27 @@
+#!/bin/bash
+# Installs or removes aPiStation Store games with apt. Installed as /usr/local/sbin/apistation-pkg
+# by kiosk/setup-store.sh. Only packages listed in /etc/apistation/store-packages are accepted,
+# so the hub can manage games without having general root access.
+set -euo pipefail
+
+ALLOWED=/etc/apistation/store-packages
+action="${1:-}"
+shift || true
+
+case "$action" in
+  install|remove) ;;
+  *) echo "usage: apistation-pkg install|remove PACKAGE..." >&2; exit 2 ;;
+esac
+[ $# -gt 0 ] || { echo "no packages given" >&2; exit 2; }
+for pkg in "$@"; do
+  grep -qxF -- "$pkg" "$ALLOWED" || { echo "package not allowed: $pkg" >&2; exit 3; }
+done
+
+export DEBIAN_FRONTEND=noninteractive
+opts=(-y -o APT::Status-Fd=1 -o DPkg::Lock::Timeout=300)
+if [ "$action" = install ]; then
+  exec apt-get install "${opts[@]}" --no-install-recommends -- "$@"
+else
+  # --autoremove also drops the game's data packages that nothing else needs.
+  exec apt-get remove "${opts[@]}" --autoremove -- "$@"
+fi

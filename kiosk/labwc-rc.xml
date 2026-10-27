@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- aPiStation kiosk: every app opens borderless and maximized, so native games fill the TV.
+     labwc runs with -m on Raspberry Pi OS, so this is merged with the system rc.xml. -->
+<labwc_config>
+  <windowRules>
+    <windowRule identifier="*" serverDecoration="no">
+      <action name="Maximize" />
+    </windowRule>
+  </windowRules>
+</labwc_config>

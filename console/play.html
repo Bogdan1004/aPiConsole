@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>aPiStation · Play</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #game { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script>
+    // Retro games in the browser with EmulatorJS (libretro cores compiled to WebAssembly).
+    // Opened by the console in an iframe: play.html?system=nes&url=/api/roms/...&name=...&color=...
+    const params = new URLSearchParams(location.search);
+    window.EJS_player = '#game';
+    window.EJS_core = params.get('system');
+    window.EJS_gameUrl = params.get('url');
+    window.EJS_gameName = params.get('name') || 'game';
+    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/4.2.3/data/';
+    window.EJS_startOnLoaded = true;
+    window.EJS_color = params.get('color') || '#a78bfa';
+    window.EJS_backgroundColor = '#05060f';
+    window.EJS_volume = 0.7;
+
+    // Esc leaves the game and returns to the console (the console also listens for Start + Select).
+    addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        parent.postMessage({ type: 'apistation-exit' }, location.origin);
+      }
+    }, true);
+  </script>
+  <script src="https://cdn.emulatorjs.org/4.2.3/data/loader.js"></script>
+</body>
+</html>
