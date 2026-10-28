@@ -255,6 +255,10 @@ class Music:
             self._upsert(conn, pid, t)
             conn.execute("UPDATE music_log SET plays=plays+1, played_at=datetime('now', 'localtime') "
                          "WHERE profile_id=? AND id=?", (pid, t["id"]))
+            # Every listen with its time, for aPi Wrapped (music_log only keeps totals).
+            conn.execute("INSERT INTO music_plays(profile_id, id, title, artist, artist_id, poster, duration) "
+                         "VALUES (?,?,?,?,?,?,?)", (pid, t["id"], t["title"], t["artist"], t.get("artist_id"),
+                                                    t.get("poster"), t.get("duration")))
 
     def rate(self, pid: str, t: dict, rating: int) -> None:
         with self.db.write() as conn:

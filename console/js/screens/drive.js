@@ -3,6 +3,7 @@
 // and a trash. Remote access goes through Tailscale, shown when it's installed.
 import { api } from '../api.js';
 import { mountTopbar } from '../chrome.js';
+import { go } from '../router.js';
 import { focus, focusFirst, getFocused } from '../focus.js';
 import { icon } from '../icons.js';
 import { lastSource } from '../input.js';
@@ -138,7 +139,8 @@ export default {
         <div class="panel drive-storage"></div>
         <div class="gauges"></div>
         <div class="panel drive-remote"></div>
-        <div class="panel services"><div class="row-title">${icon('layers', 24)} Services</div>${serviceRows()}</div>
+        <div class="panel services"><div class="row-title">${icon('layers', 24)} Services
+          ${store.guest ? '' : `<button class="btn small" data-focus data-act="monitor">${icon('chart', 18)} System monitor</button>`}</div>${serviceRows()}</div>
       </div>
       <div class="panel drive-files">
         <div class="files-head"></div>
@@ -338,6 +340,7 @@ export default {
     };
 
     el.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-act="monitor"]')) return go('monitor');
       const crumb = e.target.closest('[data-crumb]');
       if (crumb) return openDir(crumb.dataset.crumb);
       const tool = e.target.closest('[data-tool]')?.dataset.tool;

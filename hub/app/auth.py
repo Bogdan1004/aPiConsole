@@ -56,6 +56,7 @@ GUEST_WRITES = [
     ("POST", re.compile(r"^/api/music/(start|played|rate)$")),
     ("POST", re.compile(r"^/api/ai/chat$")),
     ("POST", re.compile(r"^/api/profiles/guest/inbox/seen$")),
+    ("POST", re.compile(r"^/api/remote/(pair|unpair)$")),  # a phone as controller for the guest's own screen
 ]
 
 # (bucket, limit, seconds) per session; guests get the tighter ones.
@@ -168,6 +169,12 @@ class Auth:
         if not row or row["expires_at"] < time.time():
             return None
         return Session(row["profile_id"], row["expires_at"], _token_hash(token)[:16])
+
+    def end_others(self, pid: str, token: str | None) -> int:
+        """Sign a profile out of every device except the one holding `token`."""
+        keep = _token_hash(token) if token else ""
+        with self.db.write() as conn:
+            return conn.execute("DELETE FROM sessions WHERE profile_id=? AND token_hash != ?", (pid, keep)).rowcount
 
     def end(self, token: str | None) -> None:
         if token:

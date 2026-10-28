@@ -53,6 +53,26 @@ export function hints(list) {
 const stack = [];
 const host = () => document.getElementById('overlay-host');
 
+/**
+ * Text typed on a paired phone: into the on-screen keyboard or PIN pad when one is open, otherwise into the focused
+ * (or first) text field of the screen. Returns false when there is nowhere to type.
+ */
+export function remoteText(text, submit) {
+  const layer = topOverlay();
+  if (layer?.text) {
+    layer.text(text, submit);
+    return true;
+  }
+  const scope = layer ? layer.body : document.getElementById('screen-host');
+  const focused = getFocused();
+  const field = (focused?.matches('input.field') && scope.contains(focused) ? focused : null) || scope.querySelector('input.field');
+  if (!field) return false;
+  field.value = text;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  if (submit) field.dispatchEvent(new CustomEvent('submit-input', { bubbles: true }));
+  return true;
+}
+
 export function topOverlay() {
   return stack[stack.length - 1] || null;
 }
@@ -263,6 +283,11 @@ export function keyboardPrompt({ title = 'Type a message', value = '', placehold
           return false;
         };
         layer.onClose = () => { if (!done) { done = true; resolve(null); } };
+        layer.text = (typed, submit) => {
+          text = typed;
+          paint();
+          if (submit) finish(text.trim() || null, layer);
+        };
         paint();
       },
     });

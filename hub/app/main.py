@@ -1,14 +1,18 @@
 """aPiStation Hub: one API for media, games, smart home, storage, gamification and Claude."""
 
+import asyncio
+import io
 import ipaddress
 import json
 import logging
 import socket
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
-from fastapi import FastAPI, HTTPException, Request, Response
+import segno
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +22,8 @@ from .ai import AI, offline_assistant, offline_games, offline_recommendations, o
 from .auth import COOKIE, GUEST, PIN_RE, Auth, Session, client_address, current
 from .assistant_faq import answer as faq_answer
 from .local_ai import MODEL_NAME, LocalAI, music_command
+from .realtime import Client, Realtime
+from .services.vpad import VirtualPad
 from .config import settings
 from .db import Database
 from .gamification import Gamification
@@ -27,6 +33,8 @@ from .services.home import SmartHome
 from .services.launcher import Launcher
 from .services.library import Library
 from .services.drive import Drive, DriveError
+from .services.monitor import RANGES, Monitor
+from .services.stats import PERIODS, Stats, offline_story
 from .services.films import Films
 from .services.music import Music
 from .services.store import Store
@@ -57,6 +65,22 @@ library.extra_movies = films.local_movies
 music = Music(settings, db)
 local_ai.warm_up(library.catalog_digest(), home.snapshot())
 drive = Drive(settings.storage_root, db, db.all("SELECT id, name FROM profiles ORDER BY rowid"))
+stats = Stats(db)
+rt = Realtime()
+rt.pad = VirtualPad()
+rt.names = {r["id"]: r["name"] for r in db.all("SELECT id, name FROM profiles")}
+# Alerts (hot Pi, disk full) go to the players' screens, never to guests.
+monitor = Monitor(db, settings.storage_root, online=lambda: len(rt.consoles),
+                  alert=lambda msg: [rt.notify(pid, msg) for pid in rt.names if pid != GUEST])
+_audit_seen: dict[tuple, float] = {}
+
+
+def _audit_once(kind: str, session, address: str, detail: str) -> None:
+    """Log blocked/limited requests at most once a minute per device, so a flood can't fill the log."""
+    key = (kind, session.key if session else address)
+    if time.time() - _audit_seen.get(key, 0) > 60:
+        _audit_seen[key] = time.time()
+        monitor.audit(kind, session.profile_id if session else None, address, detail)
 
 app = FastAPI(title="aPiStation Hub", version="0.1.0")
 
@@ -66,18 +90,29 @@ PLAY_KIND = {"movie": "watch", "album": "listen", "game": "play"}
 @app.middleware("http")
 async def sessions_and_limits(request: Request, call_next):
     """Who is asking (session cookie), what they may do (guest = read-only) and how often."""
+    rt.loop = rt.loop or asyncio.get_running_loop()
     session = auth.lookup(request.cookies.get(COOKIE))
     current.set(session)
     method, path = request.method, request.url.path
     if not auth.is_public(method, path):
+        address = client_address(request.headers, request.client)
+        blocked = None
         if not session:
-            return JSONResponse({"detail": "Sign in first", "code": "signin"}, status_code=401)
-        if session.guest and not auth.guest_may(method, path):
-            return JSONResponse({"detail": "Guests can look around, but can't change things on this console.",
-                                 "code": "guest"}, status_code=403)
-        if not auth.allow(session, "requests"):
-            return JSONResponse({"detail": "Too many requests, slow down a little.", "code": "rate"}, status_code=429)
-    return await call_next(request)
+            blocked = JSONResponse({"detail": "Sign in first", "code": "signin"}, status_code=401)
+        elif session.guest and not auth.guest_may(method, path):
+            _audit_once("guest_blocked", session, address, f"{method} {path}")
+            blocked = JSONResponse({"detail": "Guests can look around, but can't change things on this console.",
+                                    "code": "guest"}, status_code=403)
+        elif not auth.allow(session, "requests"):
+            _audit_once("rate_limited", session, address, f"{method} {path}")
+            blocked = JSONResponse({"detail": "Too many requests, slow down a little.", "code": "rate"}, status_code=429)
+        if blocked:
+            monitor.count(blocked.status_code)
+            return blocked
+    response = await call_next(request)
+    if path.startswith("/api/"):
+        monitor.count(response.status_code)
+    return response
 
 
 @app.middleware("http")
@@ -186,11 +221,15 @@ def login(pid: str, request: Request, response: Response, req: LoginRequest | No
             raise HTTPException(409, "Create a PIN for this profile first")
         address = client_address(request.headers, request.client)
         if auth.pin_locked(pid, address):
+            monitor.audit("pin_locked", pid, address, "sign-in refused while locked")
             raise HTTPException(429, "Too many wrong PINs. Try again in a few minutes.")
         if not auth.check_pin(pid, req.pin):
             auth.pin_failed(pid, address)
+            monitor.audit("login_failed", pid, address, "wrong PIN")
             raise HTTPException(403, "Wrong PIN")
     token, max_age = auth.start(pid, req.remember)
+    monitor.audit("login", pid, client_address(request.headers, request.client),
+                  "remembered device" if req.remember and pid != GUEST else "")
     response.set_cookie(COOKIE, token, max_age=max_age if req.remember or pid == GUEST else None,
                         httponly=True, samesite="lax", secure=_https(request), path="/")
     current.set(Session(pid, 0))
@@ -220,8 +259,11 @@ def set_pin(pid: str, req: PinRequest, request: Request):
             raise HTTPException(429, "Too many wrong PINs. Try again in a few minutes.")
         if not auth.check_pin(pid, req.old_pin):
             auth.pin_failed(pid, address)
+            monitor.audit("login_failed", pid, address, "wrong current PIN while changing it")
             raise HTTPException(403, "The current PIN is wrong")
+    first = not auth.has_pin(pid)
     auth.set_pin(pid, req.pin)
+    monitor.audit("pin_created" if first else "pin_changed", pid, client_address(request.headers, request.client))
     return {"ok": True}
 
 
@@ -235,9 +277,21 @@ def session_info():
 
 @app.post("/api/session/logout")
 def logout(request: Request, response: Response):
+    session = current.get()
     auth.end(request.cookies.get(COOKIE))
     response.delete_cookie(COOKIE, path="/")
+    if session:
+        monitor.audit("logout", session.profile_id, client_address(request.headers, request.client))
     return {"ok": True}
+
+
+@app.post("/api/session/others/logout")
+def logout_others(request: Request):
+    """Sign this profile out everywhere except here (e.g. after a phone or laptop went missing)."""
+    session = current.get()
+    removed = auth.end_others(session.profile_id, request.cookies.get(COOKIE))
+    monitor.audit("signed_out_others", session.profile_id, client_address(request.headers, request.client), f"{removed} devices")
+    return {"signed_out": removed}
 
 
 @app.get("/api/profiles/{pid}")
@@ -287,11 +341,12 @@ class PlayRequest(BaseModel):
     item_id: str
     # "tv": native player/emulator on the Pi's HDMI screen; "here": in the requesting browser (EmulatorJS)
     target: str = Field(default="tv", pattern="^(tv|here)$")
+    netplay: bool = False  # retro games on the TV: host an online game a friend's RetroArch can join
 
 
 @app.post("/api/play")
 def play(req: PlayRequest):
-    _profile(req.profile_id)
+    prof = _profile(req.profile_id)
     item = _item(req.kind, req.item_id)
     in_browser = (req.target == "here" and (item.get("web") or item.get("imdb_id"))) or item["kind"] == "album" \
         or (item["kind"] == "game" and item["launch"]["type"] == "builtin")
@@ -303,7 +358,10 @@ def play(req: PlayRequest):
         # A downloaded film plays in the requesting browser, streamed from the Pi.
         launch = {"mode": "web-video", "url": f"/api/films/{item['imdb_id']}/stream"}
     else:
-        launch = launcher.launch(item)
+        launch = launcher.launch(item, netplay_nick=prof["name"] if req.netplay else None)
+        if launch.get("netplay"):
+            remote = drive.remote()
+            launch["netplay"]["addresses"] = [a for a in (system._ip(), *(remote.get("ips") or [])[:1]) if a]
     tracks = library.album_streams(item) if item["kind"] == "album" else None
     event = game.record(req.profile_id, PLAY_KIND[req.kind], item["id"], item["title"], _play_meta(item))
     if item.get("imdb_id"):
@@ -549,6 +607,7 @@ async def drive_upload(request: Request, profile_id: str, path: str, name: str):
         part.unlink(missing_ok=True)
         raise
     event = game.record(profile_id, "upload", None, dest.name, {})
+    monitor.audit("upload", profile_id, client_address(request.headers, request.client), str(drive.rel(dest)))
     return {"entry": drive._entry(dest), "event": event}
 
 
@@ -570,6 +629,7 @@ def drive_move(req: DriveAction):
 @app.post("/api/drive/delete")
 def drive_delete(req: DriveAction):
     _drive(drive.delete, _profile(req.profile_id), req.path)
+    monitor.audit("delete", req.profile_id, None, req.path)
     return {"ok": True}
 
 
@@ -585,6 +645,155 @@ def shared_link(token: str):
     if not path:
         return HTMLResponse("<h1>This link has expired or doesn't exist.</h1>", status_code=404)
     return FileResponse(path, filename=path.name, content_disposition_type="attachment")
+
+
+# ---------- monitoring ----------
+@app.get("/api/monitor")
+def monitor_page(range: str = "1h"):
+    """Pi health over time, devices online, signed-in sessions and the security log (players only)."""
+    if _guest():
+        raise HTTPException(403, "Monitoring is for signed-in players")
+    if range not in RANGES:
+        raise HTTPException(400, "range is 1h, 24h or 7d")
+    now = system.stats(settings.storage_root)
+    presence = rt.presence()
+    sessions = db.all("SELECT profile_id, COUNT(*) AS n FROM sessions WHERE expires_at > ? GROUP BY profile_id", (time.time(),))
+    return {
+        "series": monitor.series(range),
+        "now": {**(monitor.latest() or {}), "uptime": now["uptime"], "load": now["load"], "cpu_count": now["cpu_count"],
+                "mem_total": now["mem_total"], "storage_total": now["storage"]["total"], "model": now["model"]},
+        "online": [{"profile_id": pid, "name": rt.names.get(pid, pid), "devices": p["devices"],
+                    "activity": (p.get("activity") or {}).get("text")} for pid, p in presence.items()],
+        "guests_online": sum(1 for c in rt.consoles.values() if c.profile_id == GUEST),
+        "phones": sum(len(v) for v in rt.phones.values()),
+        "sessions": [{"profile_id": s["profile_id"], "name": rt.names.get(s["profile_id"], s["profile_id"]), "count": s["n"]} for s in sessions],
+        "events": monitor.events(40),
+    }
+
+
+# ---------- aPi Wrapped ----------
+PERIOD_LABEL = {"week": "the last 7 days", "month": "the last 30 days", "all": "all time"}
+
+
+@app.get("/api/stats")
+def stats_page(profile_id: str, period: str = "week"):
+    """Stats for a period, the leaderboard with the other player and this week's challenges (rewarded once)."""
+    _profile(profile_id)
+    if period not in PERIODS:
+        raise HTTPException(400, "period is week, month or all")
+    others = [] if _guest() else db.all("SELECT id, name, hue FROM profiles WHERE id != ? ORDER BY rowid", (GUEST,))
+    page = stats.wrapped(profile_id, period, others or db.all("SELECT id, name, hue FROM profiles WHERE id=?", (profile_id,)))
+    challenges, finished = stats.challenges(profile_id)
+    events = [game.record(profile_id, "challenge", f["item_id"], f["title"], {}) for f in finished]
+    return {**page, "challenges": challenges, "events": events}
+
+
+@app.get("/api/stats/story")
+async def stats_story(profile_id: str, period: str = "week"):
+    """The Wrapped persona and summary: written by Claude once a day per period (offline for the Guest)."""
+    prof = _profile(profile_id)
+    if period not in PERIODS:
+        raise HTTPException(400, "period is week, month or all")
+    kind = f"wrapped-{period}"
+    today = date.today().isoformat()
+    cached = db.one("SELECT payload FROM ai_cache WHERE profile_id=? AND day=? AND kind=?", (profile_id, today, kind))
+    if cached:
+        return json.loads(cached["payload"])
+    page = await run_in_threadpool(stats.wrapped, profile_id, period, [])
+    story = None if _guest() else await ai.wrapped_story(prof, page, PERIOD_LABEL[period])
+    story = story or offline_story(prof, page)
+    with db.write() as conn:
+        conn.execute("INSERT OR REPLACE INTO ai_cache(profile_id, day, kind, payload) VALUES (?,?,?,?)",
+                     (profile_id, today, kind, json.dumps(story)))
+    return story
+
+
+# ---------- real time: presence, phone controller, together ----------
+def _same_origin(headers) -> bool:
+    """WebSockets skip the browser's same-origin rules: only accept pages served by this hub."""
+    origin = headers.get("origin", "")
+    return not origin or origin.split("://", 1)[-1] == headers.get("host", "")
+
+
+@app.websocket("/ws")
+async def ws_endpoint(ws: WebSocket, role: str = "console", cid: str = "", pair: str = "", key: str = "", tv: bool = False):
+    rt.loop = rt.loop or asyncio.get_running_loop()
+    if not _same_origin(ws.headers) or not (8 <= len(cid or key or pair) <= 64):
+        await ws.close(code=4403)
+        return
+    if role == "phone":
+        if pair:
+            redeemed = rt.redeem(pair)
+            cid, key = redeemed if redeemed else ("", "")
+        else:
+            cid = rt.console_for_key(key) or ""
+        if not cid:
+            await ws.close(code=4401)
+            return
+        await ws.accept()
+        client = Client(ws, "phone", cid)
+        if pair:
+            await rt.send(client, {"t": "key", "key": key})
+            owner = rt.consoles.get(cid)
+            monitor.audit("phone_paired", owner.profile_id if owner else None, client_address(ws.headers, ws.client))
+    else:
+        session = auth.lookup(ws.cookies.get(COOKIE))
+        if not session:
+            await ws.close(code=4401)
+            return
+        await ws.accept()
+        # Only the kiosk on the Pi itself is the TV (not a tunnel, which also connects from localhost).
+        local = ws.client and ws.client.host in ("127.0.0.1", "::1") and not any(
+            ws.headers.get(h) for h in ("x-forwarded-for", "cf-connecting-ip", "forwarded"))
+        client = Client(ws, "console", cid, session.profile_id, tv=bool(tv and local))
+    await rt.join(client)
+    try:
+        while True:
+            raw = await ws.receive_text()
+            if len(raw) > 20_000 or not rt.allow(client):
+                continue
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(msg, dict):
+                await rt.handle(client, msg)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await rt.leave(client)
+
+
+class PairRequest(BaseModel):
+    cid: str = Field(min_length=8, max_length=64)
+
+
+@app.post("/api/remote/pair")
+def remote_pair(req: PairRequest, request: Request):
+    """A one-time link (and its QR code) that turns a phone into this console's controller."""
+    console = rt.consoles.get(req.cid)
+    if not console:
+        raise HTTPException(409, "This console isn't connected yet; try again in a moment.")
+    if console.profile_id != current.get().profile_id:
+        raise HTTPException(403, "That's another console")
+    token = rt.new_pairing(req.cid)
+    host = request.headers.get("host", "")
+    if host.endswith(".ts.net"):  # opened through Tailscale: the phone uses the same address
+        base = f"https://{host}"
+    else:  # at home: the Pi's address on the home network (phones don't resolve localhost)
+        base = f"http://{system._ip() or socket.gethostname() + '.local'}:{settings.port}"
+    url = f"{base}/remote.html?pair={token}"
+    svg = io.BytesIO()
+    segno.make(url, error="m").save(svg, kind="svg", scale=8, border=2, dark="#0b0c1d", light="#ffffff", xmldecl=False)
+    return {"url": url, "qr": svg.getvalue().decode(), "expires_in": 600}
+
+
+@app.post("/api/remote/unpair")
+def remote_unpair(req: PairRequest):
+    console = rt.consoles.get(req.cid)
+    if console and console.profile_id != current.get().profile_id:
+        raise HTTPException(403, "That's another console")
+    return {"disconnected": rt.unpair(req.cid)}
 
 
 # ---------- Music (Deezer catalog, YouTube playback) ----------
@@ -729,6 +938,7 @@ def _store_entry(game_id: str, req: StoreAction) -> None:
 @app.post("/api/store/{game_id}/install")
 def store_install(game_id: str, req: StoreAction):
     _store_entry(game_id, req)
+    monitor.audit("store_install", req.profile_id, None, game_id)
     return store.enqueue(game_id, "install", req.profile_id)
 
 
@@ -737,6 +947,7 @@ def store_uninstall(game_id: str, req: StoreAction):
     _store_entry(game_id, req)
     if (launcher.status().get("item") or {}).get("id") == game_id:
         launcher.stop()
+    monitor.audit("store_uninstall", req.profile_id, None, game_id)
     return store.enqueue(game_id, "uninstall", req.profile_id)
 
 

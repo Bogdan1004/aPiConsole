@@ -34,6 +34,7 @@ const P = {
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
   chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17v-3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   minus: '<path d="M5 12h14"/>',
   bulb: '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',

@@ -55,6 +55,19 @@ disliked. Mix artists they love with new artists in the same spirit and vary the
 reason is one short sentence in English that refers to their taste. Use the song title and main artist exactly as
 streaming services list them, so the song can be found."""
 
+WRAPPED_TASK = """Write this person's "aPi Wrapped" for the period, from their stats on the console (like Spotify
+Wrapped, but for everything they did). Give a fun 2-4 word persona that fits the data (e.g. "Retro Night Owl"), a
+one-line headline addressed to them, a warm 2-3 sentence summary that mentions specific numbers, artists, films or
+games from the data, and exactly 3 short fun facts drawn from the data. Never invent numbers or titles."""
+
+WRAPPED_SCHEMA = {
+    "type": "object",
+    "properties": {"persona": {"type": "string"}, "headline": {"type": "string"}, "summary": {"type": "string"},
+                   "facts": {"type": "array", "items": {"type": "string"}}},
+    "required": ["persona", "headline", "summary", "facts"],
+    "additionalProperties": False,
+}
+
 SONG = {
     "type": "object",
     "properties": {"artist": {"type": "string"}, "title": {"type": "string"}, "reason": {"type": "string"}},
@@ -313,6 +326,22 @@ class AI:
         )
         system = [{"type": "text", "text": SYSTEM_PROMPT}]
         return await self._ask(system, [{"role": "user", "content": user}], MUSIC_SCHEMA)
+
+    # ---------- aPi Wrapped ----------
+    async def wrapped_story(self, profile: dict, wrapped: dict, period_label: str) -> dict | None:
+        """Persona, headline, summary and facts for a Wrapped period; None when Claude is off or failed."""
+        if not self.client:
+            return None
+        digest = {k: wrapped[k] for k in ("kpis", "top_artists", "top_songs", "films", "top_games")}
+        hours = [sum(day[h] for day in wrapped["heat"]) for h in range(24)]
+        digest["busiest_hour"] = max(range(24), key=lambda h: hours[h]) if any(hours) else None
+        user = (f"{WRAPPED_TASK}\n\n<person>\nname: {profile['name']}\nlevel: {profile['level']} ({profile['title']})\n"
+                f"period: {period_label}\n</person>\n<stats>\n{dumps(digest)}\n</stats>")
+        data = await self._ask([{"type": "text", "text": SYSTEM_PROMPT}], [{"role": "user", "content": user}], WRAPPED_SCHEMA)
+        if not data:
+            return None
+        return {"source": "claude", "persona": _clean(data["persona"]), "headline": _clean(data["headline"]),
+                "summary": _clean(data["summary"]), "facts": [_clean(f) for f in data["facts"][:3]]}
 
     # ---------- assistant ----------
     async def assistant(self, profile: dict, message: str, history: list[dict], chat: list[dict],

@@ -8,6 +8,7 @@ import { fmtSize } from '../gamestore.js';
 import { icon } from '../icons.js';
 import { lastSource } from '../input.js';
 import { playItem } from '../playback.js';
+import { onlineFriend, startParty } from '../together.js';
 import { emit, findItem, loadLibrary, on, store } from '../store.js';
 import { celebrate, closeOverlay, esc, hints, keyboardPrompt, openOverlay, timeAgo, toast } from '../ui.js';
 
@@ -241,8 +242,14 @@ export default {
       } else if (d?.free) {
         out.push(`<button class="btn primary" data-focus data-act="download">${icon('download', 24)} Download · ${fmtSize(d.free.size / 1_048_576)}</button>`);
       }
+      if (local?.imdb_id && onlineFriend() && !store.guest) {
+        out.push(`<button class="btn" data-focus data-act="together">${icon('users', 22)} Watch together</button>`);
+      }
       if (fid) {
         if (d?.trailers?.length) out.push(`<button class="btn" data-focus data-act="trailer">${icon('film', 22)} Trailer</button>`);
+        if (d?.trailers?.length && onlineFriend() && !store.guest) {
+          out.push(`<button class="btn" data-focus data-act="trailer-together">${icon('users', 22)} Trailer together</button>`);
+        }
         const listed = d?.status?.in_list;
         out.push(`<button class="btn" data-focus data-act="list">${icon(listed ? 'check' : 'plus', 22)} ${listed ? 'In My List' : 'My List'}</button>`);
         const r = d?.status?.watched?.rating ?? item.rating_given;
@@ -390,6 +397,11 @@ export default {
           return playItem(local, act === 'play-here' ? 'here' : 'tv');
         }
         if (act === 'trailer' && d?.trailers?.[0]) return openTrailer(d.trailers[0], item.title);
+        if (act === 'trailer-together' && d?.trailers?.[0]) return startParty('watch', { title: `${item.title} · trailer`, youtube: d.trailers[0] });
+        if (act === 'together') {
+          const local = item.kind === 'movie' ? item : findItem('movie', item.id);
+          return startParty('watch', { title: item.title, video: `/api/films/${local.imdb_id}/stream` });
+        }
         if (act === 'download') {
           const job = await api.filmDownload(pid, fid);
           ctx.jobs[fid] = job;

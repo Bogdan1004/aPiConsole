@@ -231,7 +231,7 @@ const VIEWS = {
       title: `Level ${p.level} · ${p.title}`,
       desc: `${p.level_ceil - p.xp} XP to level ${p.level + 1}. Complete daily quests, keep your streak and collect all ${p.trophies.possible} trophies for Platinum.`,
       chips: [`${p.trophies.total}/${p.trophies.possible} trophies`, `${quests.filter((q) => q.done).length}/${quests.length} quests today`, `${p.streak} day streak`],
-      buttons: [['open', 'View trophies', 'trophy'], ['quests', 'Daily quests', 'target']],
+      buttons: [['open', 'View trophies', 'trophy'], ['goto:stats', 'aPi Wrapped', 'chart'], ['quests', 'Daily quests', 'target']],
       visual: `<div class="medal-stack">${['bronze', 'silver', 'gold', 'platinum'].map((t) => `<div class="medal-col"><div class="medal medal-${t}" style="--s:110px">${icon('trophy', 50, 2)}</div><b class="num">${p.trophies[t]}</b></div>`).join('')}</div>`,
       shelfTitle: ['target', 'Daily quests'],
       shelf: quests.map((q) => iconCard('quests', q.done ? 'check' : q.icon, q.title, `${Math.min(q.progress, q.target)}/${q.target} · +${q.xp} XP`, q.done ? 140 : 45)).join(''),

@@ -1,5 +1,6 @@
 import { deleteGame } from '../gamestore.js';
 import { icon } from '../icons.js';
+import { playItem } from '../playback.js';
 import { go } from '../router.js';
 import { on, store } from '../store.js';
 import { browseScreen } from './browse.js';
@@ -29,8 +30,13 @@ export default browseScreen({
   status: (g) => (g.available || g.web ? { label: `${icon('check', 16)} Ready`, tone: 'ok' } : { label: `${icon('lock', 16)} Setup needed`, tone: 'warn' }),
   description: (g) => g.description,
   askPrompt: (g) => `Give me tips for ${g.title}, and suggest a game we could play together after.`,
-  extraButtons: (g) => (g.source === 'builtin' ? '' : `<button class="icon-btn" data-focus data-act="delete" title="Delete">${icon('trash', 24)}</button>`),
+  extraButtons: (g) => [
+    g.launch?.type === 'retroarch' && g.available && !store.guest
+      ? `<button class="btn" data-focus data-act="netplay">${icon('users', 22)} Play online</button>` : '',
+    g.source === 'builtin' ? '' : `<button class="icon-btn" data-focus data-act="delete" title="Delete">${icon('trash', 24)}</button>`,
+  ].join(''),
   onAct: (act, g) => {
+    if (act === 'netplay') playItem(g, 'tv', { netplay: true });
     if (act === 'delete') remove(g);
     if (act === 'store') go('store');
   },

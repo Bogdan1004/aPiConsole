@@ -46,11 +46,12 @@ export async function playArtistRadio(artist) {
   }
 }
 
-export async function playItem(item, target = defaultTarget(item)) {
+/** `netplay`: a retro game on the TV hosted as an online game, which a friend's RetroArch can join. */
+export async function playItem(item, target = defaultTarget(item), { netplay = false } = {}) {
   if (item.kind === 'game' && target === 'tv' && !item.available) return openSetupHelp(item);
   let res;
   try {
-    res = await api.play(store.profile.id, item.kind, item.id, target);
+    res = await api.play(store.profile.id, item.kind, item.id, target, netplay);
   } catch (err) {
     toast({ icon: 'x', title: `Could not start ${item.title}`, text: err.message, tone: 'error' });
     return;
@@ -72,7 +73,7 @@ export async function playItem(item, target = defaultTarget(item)) {
     openWebGame(item, res.launch);
   } else {
     if (music.playing) music.toggle();
-    openRunning(item);
+    openRunning(item, res.launch.netplay);
   }
 }
 
@@ -180,7 +181,7 @@ function openBrowserVideo(item, url) {
   });
 }
 
-function openRunning(item) {
+function openRunning(item, netplay = null) {
   // On the TV (kiosk) the game covers this screen; from a laptop browser it plays on the Pi's HDMI screen.
   const onTv = document.body.classList.contains('kiosk');
   const where = onTv
@@ -197,6 +198,13 @@ function openRunning(item) {
             <div class="kicker">${esc(item.platform)} · ${onTv ? 'running on the TV' : 'running on the Pi'}</div>
             <h1 class="title-xl">${esc(item.title)}</h1>
             <p class="muted">${where}</p>
+            ${netplay ? `<div class="netplay-box">
+              <div class="kicker">${icon('users', 18)} Online game hosted</div>
+              <p>Your friend opens <b>RetroArch</b> with the same game (<b class="num">${esc(netplay.rom)}</b>) and core
+              (<b class="num">${esc(netplay.core.replace(/_libretro\.so$/, ''))}</b>), then <b>Netplay → Connect to Netplay Host</b>:</p>
+              <div class="netplay-addr num">${netplay.addresses.map((a) => `${esc(a)}:${netplay.port}`).join('<span class="dim"> or </span>')}</div>
+              <p class="dim">The first address works on the home network, the second one through Tailscale from anywhere.</p>
+            </div>` : ''}
             <div class="btn-row"><button class="btn" data-focus data-autofocus data-act="stop">${icon('power', 24)} ${onTv ? 'Force quit' : 'Close game'}</button></div>
           </div>
         </div>`;

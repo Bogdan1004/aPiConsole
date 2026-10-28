@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0c1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>aPiStation Remote</title>
+  <link rel="manifest" href="remote.webmanifest">
+  <link rel="icon" href="assets/remote-icon.svg">
+  <link rel="stylesheet" href="css/remote.css">
+</head>
+<body>
+  <header class="r-head">
+    <span class="r-brand"><span class="r-mark">π</span> aPiStation</span>
+    <span class="r-status" id="status"><i></i><span>Connecting…</span></span>
+  </header>
+  <div class="r-screen" id="screen">Scan the QR code on the TV to start.</div>
+  <div class="r-music" id="music" hidden>
+    <div class="r-music-text"><b id="music-title"></b><span id="music-artist"></span></div>
+    <button class="r-btn small" data-music="prev" aria-label="Previous song">⏮</button>
+    <button class="r-btn small" data-music="toggle" aria-label="Play or pause" id="music-toggle">⏯</button>
+    <button class="r-btn small" data-music="next" aria-label="Next song">⏭</button>
+  </div>
+  <main class="r-pad">
+    <div class="r-shoulders">
+      <button class="r-btn shoulder" data-action="lb">LB</button>
+      <button class="r-btn shoulder" data-action="rb">RB</button>
+    </div>
+    <div class="r-controls">
+      <div class="r-dpad">
+        <button class="r-btn dir d-up" data-action="up" data-repeat aria-label="Up"></button>
+        <button class="r-btn dir d-left" data-action="left" data-repeat aria-label="Left"></button>
+        <button class="r-btn dir d-right" data-action="right" data-repeat aria-label="Right"></button>
+        <button class="r-btn dir d-down" data-action="down" data-repeat aria-label="Down"></button>
+        <span class="r-dpad-hub"></span>
+      </div>
+      <div class="r-face">
+        <button class="r-btn face y" data-action="y">Y</button>
+        <button class="r-btn face x" data-action="x">X</button>
+        <button class="r-btn face b" data-action="b">B</button>
+        <button class="r-btn face a" data-action="a">A</button>
+      </div>
+    </div>
+    <div class="r-menu">
+      <button class="r-btn pill" data-action="select">Select</button>
+      <button class="r-btn pill" data-action="start">Menu</button>
+    </div>
+  </main>
+  <form class="r-type" id="type">
+    <input id="text" type="text" placeholder="Type on the TV…" autocomplete="off" autocapitalize="off" maxlength="300" enterkeyhint="send">
+    <button class="r-btn send" type="submit">Send</button>
+  </form>
+  <script type="module" src="js/remote.js"></script>
+</body>
+</html>

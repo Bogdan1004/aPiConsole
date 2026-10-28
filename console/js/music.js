@@ -31,6 +31,7 @@ export const music = {
   logged: false,
   ticker: null,
   token: 0,
+  following: false, // listening together: the host's player decides what plays next
 
   async play(album, tracks = null, index = 0) {
     this.stopEngines();
@@ -163,7 +164,7 @@ export const music = {
 
   /** Keeps the endless queue topped up with songs like the current one. */
   refill(force = false) {
-    if (!this.endless || this.refilling) return this.refilling;
+    if (!this.endless || this.following || this.refilling) return this.refilling;
     if (!force && this.tracks.length - this.index > REFILL_AT) return null;
     const seed = this.tracks[this.index] || this.tracks[this.tracks.length - 1];
     if (!seed || !store.profile) return null;
@@ -222,6 +223,12 @@ export const music = {
   next() {
     if (!this.album) return;
     this.stopEngines();
+    if (this.following) {
+      // Listening together: wait for the host's next song.
+      this.playing = false;
+      emit('music', this);
+      return;
+    }
     if (!this.endless) {
       this.index = (this.index + 1) % this.tracks.length;
       this.start();
@@ -257,10 +264,17 @@ export const music = {
     this.start();
   },
 
+  /** Jump to a position in the current song (listening together keeps everyone in sync). */
+  seek(seconds) {
+    if (this.engine === 'youtube') youtube().then((yt) => yt?.seekTo(seconds, true));
+    else if (this.audio) this.audio.currentTime = Math.min(seconds, (this.audio.duration || 30) - 0.5);
+  },
+
   stop() {
     this.stopEngines();
     this.album = null;
     this.endless = false;
+    this.following = false;
     this.playing = false;
     emit('music', this);
   },

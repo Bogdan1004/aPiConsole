@@ -25,6 +25,11 @@ function fire(action, source) {
   handler(action);
 }
 
+/** A button pressed on a paired phone (it behaves like a controller). */
+export function remoteAction(action) {
+  fire(action, 'gamepad');
+}
+
 function isTyping() {
   const el = document.activeElement;
   return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');

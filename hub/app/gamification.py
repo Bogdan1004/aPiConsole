@@ -20,6 +20,7 @@ XP_RULES = {
     "score": (0, 3),  # XP comes from the score itself
     "install": (15, 3),
     "upload": (5, 10),
+    "challenge": (100, None),
     "rate": (5, 5),
 }
 # These kinds reward each item only once per day.

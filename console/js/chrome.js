@@ -7,7 +7,9 @@ import { go, current, resetHistory } from './router.js';
 import { store, on, friendOf } from './store.js';
 import { celebrate, closeOverlay, esc, hints, html, keyboardPrompt, openOverlay, toast } from './ui.js';
 import { lastSource } from './input.js';
+import { openPairing } from './remote-host.js';
 import { signOut } from './session.js';
+import { leaveParty, party } from './together.js';
 
 let cpuTemp = null;
 async function pollTemp() {
@@ -50,6 +52,7 @@ export function mountTopbar(el, crumb = '') {
       <button class="chip" data-focus data-act="trophies" title="Trophies">${icon('trophy', 22)}<span>${p.trophies?.total ?? 0}</span></button>
       ${p.unread ? `<button class="chip chip-alert" data-focus data-act="friends" title="Inbox">${icon('inbox', 22)}<span>${p.unread}</span></button>` : ''}
       <span class="chip static streak" title="Daily streak">${icon('flame', 22)}<span>${p.streak}</span></span>
+      ${store.phones ? `<span class="chip static" title="Phone controller">${icon('gamepad', 22)}<span>${store.phones}</span></span>` : ''}
       <span class="clock">${clock()}</span>
       ${cpuTemp ? `<span class="temp">${icon('thermometer', 20)}${Math.round(cpuTemp)}°</span>` : ''}
       <button class="profile-chip" data-focus data-act="menu">
@@ -172,7 +175,9 @@ export function openQuickMenu() {
           <div class="xpbar big"><i style="width:${Math.round(p.progress * 100)}%"></i></div>
           <div class="qm-xp">${p.xp - p.level_floor} / ${p.level_ceil - p.level_floor} XP to level ${p.level + 1}</div></div></div>
         <div class="qm-list">
-          ${[['home', 'home', 'Home'], ['trophies', 'trophy', 'Trophies & Quests'], ['ai', 'sparkles', 'Assistant'], ['friends', 'users', 'Friends'],
+          ${[...(party.current ? [['leave-party', 'users', `Leave: ${party.current.kind === 'watch' ? 'watching' : 'listening'} together`]] : []),
+             ['home', 'home', 'Home'], ['phone', 'gamepad', store.phones ? `Phone controller · ${store.phones} connected` : 'Use your phone as controller'],
+             ['trophies', 'trophy', 'Trophies & Quests'], ['stats', 'chart', 'aPi Wrapped'], ['ai', 'sparkles', 'Assistant'], ['friends', 'users', 'Friends'],
              ['settings', 'sliders', 'Settings'], ['switch', 'user', 'Switch profile'], ['reload', 'refresh', 'Restart console']]
             .map(([act, ic, label], i) => `<button class="qm-item" data-focus ${i === 0 ? 'data-autofocus' : ''} data-act="${act}">${icon(ic, 26)}<span>${label}</span>${icon('chevronRight', 22)}</button>`).join('')}
         </div>
@@ -183,6 +188,8 @@ export function openQuickMenu() {
         if (!act) return;
         closeOverlay(undefined, { silent: true });
         if (act === 'reload') return location.reload();
+        if (act === 'phone') return openPairing();
+        if (act === 'leave-party') return leaveParty();
         if (act === 'switch') return signOut();
         if (act === 'home') {
           resetHistory();

@@ -7,7 +7,9 @@ import { initNowPlaying, openQuickMenu } from './chrome.js';
 import { music } from './music.js';
 import { sfx } from './sfx.js';
 import { api } from './api.js';
+import { initRemoteHost } from './remote-host.js';
 import { enter, signOut } from './session.js';
+import { initTogether } from './together.js';
 import { on, store } from './store.js';
 
 import boot from './screens/boot.js';
@@ -22,9 +24,11 @@ import ai from './screens/ai.js';
 import friends from './screens/friends.js';
 import trophies from './screens/trophies.js';
 import settings from './screens/settings.js';
+import stats from './screens/stats.js';
+import monitor from './screens/monitor.js';
 import gameStore from './screens/store.js';
 
-const SCREENS = { boot, profiles, home, movies, music: musicScreen, games, store: gameStore, smarthome, drive, ai, friends, trophies, settings };
+const SCREENS = { boot, profiles, home, movies, music: musicScreen, games, store: gameStore, smarthome, drive, ai, friends, trophies, settings, stats, monitor };
 Object.entries(SCREENS).forEach(([name, mod]) => router.register(name, mod));
 
 // ---------- fit the 1920×1080 stage to any screen ----------
@@ -80,6 +84,8 @@ function initBackground() {
 }
 initBackground();
 initNowPlaying();
+initRemoteHost();
+initTogether();
 
 // ---------- input dispatch ----------
 function activate() {

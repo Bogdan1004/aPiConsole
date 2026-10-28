@@ -1,0 +1,10 @@
+{
+  "name": "aPiStation Remote",
+  "short_name": "aPi Remote",
+  "start_url": "remote.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0c1d",
+  "theme_color": "#0b0c1d",
+  "icons": [{ "src": "assets/remote-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

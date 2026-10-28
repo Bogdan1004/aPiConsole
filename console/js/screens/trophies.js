@@ -2,6 +2,7 @@
 import { api } from '../api.js';
 import { mountTopbar, questCard, ring } from '../chrome.js';
 import { icon } from '../icons.js';
+import { go } from '../router.js';
 import { refreshProfile, store } from '../store.js';
 import { esc, hints, medal } from '../ui.js';
 
@@ -28,6 +29,7 @@ export default {
         </div>
         <div class="tr-tiers">${TIERS.map((t) => `<div class="tr-tier">${medal(t, 'trophy', 64)}<b class="num">${p.trophies[t]}</b></div>`).join('')}</div>
         <div class="tr-complete"><div class="num">${Math.round((done / trophies.length) * 100)}%</div><span class="dim">${done}/${trophies.length}</span></div>
+        <button class="btn" data-focus data-act="wrapped">${icon('chart', 22)} aPi Wrapped</button>
       </div>
       <div class="tr-quests">
         <div class="row-title">${icon('target', 26)} Daily quests</div>
@@ -49,6 +51,7 @@ export default {
       </div>
       ${hints([['a', 'Select'], ['b', 'Back']])}`;
     const cleanup = mountTopbar(el, 'Trophies');
+    el.querySelector('[data-act="wrapped"]').addEventListener('click', () => go('stats'));
     return { unmount: cleanup };
   },
 };

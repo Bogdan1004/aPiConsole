@@ -5,10 +5,11 @@ import { mountTopbar, openShare, ring } from '../chrome.js';
 import { icon } from '../icons.js';
 import { music } from '../music.js';
 import { playItem } from '../playback.js';
-import { findItem, friendOf, refreshProfile, store } from '../store.js';
+import { findItem, friendOf, on, refreshProfile, store } from '../store.js';
+import { startParty } from '../together.js';
 import { closeOverlay, esc, hints, medal, openOverlay, timeAgo } from '../ui.js';
 
-const VERB = { watch: 'watched', listen: 'listened to', play: 'played', home: 'switched', ai: 'asked the assistant', share: 'shared', score: 'scored in', login: 'signed in', upload: 'uploaded', install: 'installed', rate: 'rated' };
+const VERB = { watch: 'watched', listen: 'listened to', play: 'played', home: 'switched', ai: 'asked the assistant', share: 'shared', score: 'scored in', login: 'signed in', upload: 'uploaded', install: 'installed', rate: 'rated', challenge: 'completed the challenge' };
 const TIERS = ['bronze', 'silver', 'gold', 'platinum'];
 
 function feedLine(a) {
@@ -19,11 +20,13 @@ function feedLine(a) {
 }
 
 function presence(p) {
+  const live = store.presence?.[p.id];
+  if (live?.online) return { online: true, text: `Online now · ${live.activity?.text || 'on aPiStation'}` };
   const last = p.last_activity;
   if (!last) return { online: false, text: 'No activity yet' };
   const minutes = (Date.now() - new Date(last.ts.replace(' ', 'T')).getTime()) / 60000;
   const doing = last.kind === 'ai' ? 'talking to the assistant' : `${VERB[last.kind] || ''} ${last.title || ''}`.trim();
-  return minutes < 15 ? { online: true, text: `Online · ${doing}` } : { online: false, text: `Last seen ${timeAgo(last.ts)} · ${doing}` };
+  return { online: false, text: `${minutes < 15 ? 'Recently' : `Last seen ${timeAgo(last.ts)}`} · ${doing}` };
 }
 
 export default {
@@ -42,7 +45,7 @@ export default {
             ${ring(friend, 190)}
             <h2 class="title-lg">${esc(friend.name)}</h2>
             <div class="muted">Level ${friend.level} · ${esc(friend.title)}</div>
-            <div class="presence ${pres.online ? 'on' : ''}"><span class="dot ${pres.online ? '' : 'off'}"></span>${esc(pres.text)}</div>
+            <div class="presence ${pres.online ? 'on' : ''}"><span class="dot ${pres.online ? '' : 'off'}"></span><span class="presence-text">${esc(pres.text)}</span></div>
             <div class="friend-stats">
               <span>${icon('flame', 22)} ${friend.streak} day streak</span>
               <span>${icon('trophy', 22)} ${friend.trophies.total} trophies</span>
@@ -50,7 +53,9 @@ export default {
             <div class="friend-actions" data-group="friend">
               <button class="btn primary" data-focus data-act="compare">${icon('trophy', 22)} Compare trophies</button>
               ${music.album ? `<button class="btn" data-focus data-act="share-music">${icon('music', 22)} Share what's playing</button>` : ''}
-            </div>` : '<div class="empty">No other players yet</div>'}
+              ${music.track?.kind === 'track' ? `<button class="btn" data-focus data-act="listen-together">${icon('users', 22)} Listen together</button>` : ''}
+            </div>
+            <p class="dim together-note">Watch together from Movies, listen together from Music, or host an online retro game from Games.</p>` : '<div class="empty">No other players yet</div>'}
         </div>
         <div class="friends-col">
           <div class="row-title">${icon('inbox', 26)} Shared with you <small>${inbox.length}</small></div>
@@ -89,12 +94,23 @@ export default {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'share-music' && music.album) openShare(music.album);
       if (act === 'compare') openCompare(me, friend);
+      if (act === 'listen-together' && music.track) startParty('listen', music.track);
+    });
+    // Live presence: repaint the friend's status as it changes.
+    const offPresence = on('rt:presence', () => {
+      if (!friend) return;
+      const p = presence(friend);
+      const line = el.querySelector('.presence');
+      line?.classList.toggle('on', p.online);
+      line?.querySelector('.dot')?.classList.toggle('off', !p.online);
+      const text = el.querySelector('.presence-text');
+      if (text) text.textContent = p.text;
     });
 
     if (inbox.some((s) => !s.seen)) {
       api.inboxSeen(me.id).then(refreshProfile).catch(() => {});
     }
-    return { unmount: cleanup };
+    return { unmount: () => { cleanup(); offPresence(); } };
   },
 };
 

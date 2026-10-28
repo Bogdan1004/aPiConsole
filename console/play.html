@@ -24,6 +24,12 @@
     window.EJS_color = params.get('color') || '#a78bfa';
     window.EJS_backgroundColor = '#05060f';
     window.EJS_volume = 0.7;
+    // Buttons from a paired phone (relayed by the console page): RetroPad numbering of EmulatorJS.
+    const PAD = { a: 0, x: 1, select: 2, start: 3, up: 4, down: 5, left: 6, right: 7, b: 8, y: 9, lb: 10, rb: 11 };
+    addEventListener('message', (e) => {
+      if (e.origin !== location.origin || e.data?.type !== 'apistation-pad' || !(e.data.action in PAD)) return;
+      window.EJS_emulator?.gameManager?.simulateInput(0, PAD[e.data.action], e.data.down ? 1 : 0);
+    });
 
     // Esc leaves the game and returns to the console (the console also listens for Start + Select).
     addEventListener('keydown', (e) => {

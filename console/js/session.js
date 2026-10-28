@@ -2,6 +2,7 @@
 import { api } from './api.js';
 import { icon } from './icons.js';
 import { music } from './music.js';
+import { connect, disconnect } from './realtime.js';
 import { go, resetHistory } from './router.js';
 import { loadDrive, loadFilms, loadInbox, loadLibrary, loadMusic, loadRecs, refreshProfile, store } from './store.js';
 import { celebrate, closeOverlay, esc, hints, openOverlay, toast } from './ui.js';
@@ -80,6 +81,10 @@ export function pinPad({ title, subtitle = '', remember = null, submit }) {
         };
         window.addEventListener('keydown', onKey, true);
         detach = () => window.removeEventListener('keydown', onKey, true);
+        // Digits typed on a paired phone.
+        layer.text = (typed, submit) => {
+          if (submit) [...typed].filter((ch) => /\d/.test(ch)).forEach((d) => press(d));
+        };
       },
       onClose: () => {
         detach();
@@ -93,6 +98,7 @@ export function pinPad({ title, subtitle = '', remember = null, submit }) {
 export async function enter(profile, event = null) {
   store.profile = profile;
   store.guest = profile.id === 'guest';
+  connect();
   document.body.classList.toggle('guest', store.guest);
   await Promise.all([loadLibrary(), refreshProfile(), loadInbox()]);
   loadRecs().catch(() => {});
@@ -164,6 +170,7 @@ export async function signIn(p) {
 /** Signs out and goes back to the profile picker. */
 export async function signOut() {
   music.stop();
+  disconnect();
   try { await api.logout(); } catch { /* already signed out */ }
   store.profile = null;
   store.guest = false;

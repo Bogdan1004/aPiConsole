@@ -2,6 +2,7 @@
 import { mountTopbar } from '../chrome.js';
 import { focus, getFocused } from '../focus.js';
 import { glyph, icon } from '../icons.js';
+import { go } from '../router.js';
 import { changePin, signOut } from '../session.js';
 import { sfx } from '../sfx.js';
 import { saveSettings, store } from '../store.js';
@@ -70,6 +71,10 @@ export default {
           <span class="setting-icon">${icon('users', 26)}</span>
           <span class="setting-text"><b>Sign out / switch profile</b><small>Signed in as ${esc(store.profile.name)}${store.guest ? ' (read-only demo)' : ''}</small></span>${icon('chevronRight', 26)}
         </button>
+        ${store.guest ? '' : `<button class="setting" data-focus data-act="monitor">
+          <span class="setting-icon">${icon('chart', 26)}</span>
+          <span class="setting-text"><b>System monitor</b><small>Pi health over time, devices online and the security log</small></span>${icon('chevronRight', 26)}
+        </button>`}
         ${store.guest ? '' : `<button class="setting" data-focus data-act="pin">
           <span class="setting-icon">${icon('lock', 26)}</span>
           <span class="setting-text"><b>Change PIN</b><small>Signs out your other devices</small></span>${icon('chevronRight', 26)}
@@ -91,6 +96,7 @@ export default {
       }
       if (act === 'switch') signOut();
       if (act === 'pin') changePin();
+      if (act === 'monitor') go('monitor');
       if (act === 'reload') location.reload();
     });
 

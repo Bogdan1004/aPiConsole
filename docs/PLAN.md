@@ -116,10 +116,13 @@ seara asta şi poate executa comenzi („pune lumină de film şi porneşte Inte
 - [x] Piese întregi prin playerul oficial YouTube (cheie gratuită), preview 30 s fără cheie; picture-in-picture
 - [ ] Test pe TV cu cheia YouTube; volum din Settings aplicat live
 
-### Faza 3 — Două console, doi utilizatori
-- Al doilea Pi în rol `console`, ambele legate la hub-ul server
-- Share de muzică/filme între profiluri, inbox, prezenţă „online”
-- Jellyfin SyncPlay (vizionare sincronizată) şi RetroArch Netplay (multiplayer)
+### Faza 3 — Două console, doi utilizatori *(în mare parte gata)*
+- [ ] Al doilea Pi în rol `console`, ambele legate la hub-ul server
+- [x] Share de muzică/filme între profiluri, inbox, prezenţă „online” în timp real (WebSocket)
+- [x] Watch together / Listen together sincronizate și RetroArch Netplay („Play online”)
+- [x] Telefonul ca controler (QR, gamepad, scris pe TV)
+- [x] aPi Wrapped: statistici, persona de la Claude, leaderboard, provocări săptămânale
+- [x] Monitor: istoric CPU/temperatură/memorie/rețea, jurnal de securitate, alerte
 
 ### Faza 4 — AI avansat
 - Asistent vocal (microfon USB + speech-to-text), comenzi smart home în limbaj natural

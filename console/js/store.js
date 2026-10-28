@@ -40,6 +40,9 @@ export const store = {
   fullSongs: false,
   driveRecent: null,
   session: null, // what /api/session said at boot (a remembered device skips the PIN)
+  presence: {}, // profile id → { online, devices, activity } from the real-time link
+  phones: 0, // phones paired with this console
+  online: false, // real-time link up
   guest: false,
   home: null,
   recs: null,

@@ -90,7 +90,7 @@ export const api = {
   movies: () => request('GET', '/library/movies'),
   albums: () => request('GET', '/library/albums'),
   games: () => request('GET', '/library/games'),
-  play: (profile_id, kind, item_id, target = 'tv') => request('POST', '/play', { profile_id, kind, item_id, target }),
+  play: (profile_id, kind, item_id, target = 'tv', netplay = false) => request('POST', '/play', { profile_id, kind, item_id, target, netplay }),
   score: (profile_id, game_id, score) => request('POST', '/games/score', { profile_id, game_id, score }),
   deleteRom: (id) => request('POST', `/library/games/${id}/delete`),
   launcher: () => request('GET', '/launcher'),
@@ -122,6 +122,13 @@ export const api = {
   driveAction: (action, pid, body) => request('POST', `/drive/${action}`, { profile_id: pid, ...body }),
   driveLink: (pid, path) => request('POST', '/drive/link', { profile_id: pid, path }),
   driveUpload,
+
+  monitor: (range) => request('GET', `/monitor?range=${range}`),
+  signOutOthers: () => request('POST', '/session/others/logout'),
+  stats: (pid, period) => request('GET', `/stats?profile_id=${pid}&period=${period}`),
+  statsStory: (pid, period) => request('GET', `/stats/story?profile_id=${pid}&period=${period}`),
+  pairPhone: (cid) => request('POST', '/remote/pair', { cid }),
+  unpairPhones: (cid) => request('POST', '/remote/unpair', { cid }),
 
   storeCatalog: () => request('GET', '/store'),
   storeJobs: () => request('GET', '/store/jobs'),

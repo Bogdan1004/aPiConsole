@@ -138,6 +138,55 @@ Scriptul instalează Tailscale din depozitul oficial (cere parola sudo o dată),
 - Oprești link-ul public (accesul privat rămâne) cu `tailscale funnel --https=443 off` și îl repornești cu
   `tailscale funnel --bg 8420`.
 
+## Telefonul ca controler
+
+Meniu rapid (Start / M) → **Use your phone as controller**: pe ecran apare un cod QR. Îl scanezi cu telefonul și
+pagina care se deschide (fără aplicație) devine gamepad: D-pad cu repetare, A/B/X/Y, LB/RB, Start/Select, vibrație la
+apăsare, controale de muzică și **scris direct pe TV** (căutări, chat, PIN). Telefonul vede ce e pe ecran („Movies ·
+Blade Runner”) și îți arată când TV-ul așteaptă text.
+
+- Codul QR merge **o singură dată, 10 minute**; telefonul primește apoi o cheie doar pentru acel ecran, valabilă 12 ore.
+- Totul trece printr-un **WebSocket** al hub-ului (`/ws`), care doar retransmite către consola respectivă.
+- Merge acasă (adresa Pi-ului în rețea) și prin Tailscale; și Guest își poate lega telefonul la propriul ecran.
+- **În jocuri pe TV** (RetroArch, jocuri native): telefonul legat de TV devine un **controller virtual** (Linux uinput,
+  ca un Xbox 360), pe care îl văd și jocurile și meniul consolei, cu butoane ținute apăsate. Setare unică:
+  `kiosk/setup-phone-pad.sh` (cere sudo; adaugă și profilul de controller pentru RetroArch). Start + Select ține
+  apăsat = ieșire din joc.
+- **În jocurile din browser** (EmulatorJS pe laptop), butoanele telefonului ajung direct în emulator.
+
+## Împreună (Together)
+
+- **Prezență în timp real**: în Friends vezi dacă celălalt e online și ce face („Listening to Get Lucky · Daft Punk”).
+- **Watch together**: din Movies, „Watch together” (filme descărcate pe Pi) sau „Trailer together”. Prietenul primește
+  invitația pe ecranul lui; oricine apasă pauză sau sare înainte, toți urmează (sincronizare cu corecție de decalaj),
+  plus reacții care zboară pe ecran.
+- **Listen together**: din Music sau Friends; muzica prietenului urmează piesele tale, inclusiv radioul fără sfârșit.
+- **Play online** (jocuri retro): pornește jocul pe TV ca gazdă RetroArch Netplay; prietenul se conectează din
+  RetroArch la adresa afișată (rețeaua de acasă sau Tailscale), portul 55435.
+- Guest nu vede cine e online și nu poate trimite invitații.
+
+## aPi Wrapped
+
+Ca Spotify Wrapped, dar pentru tot ce faci pe consolă: săptămâna, luna sau tot timpul (din Trophies, meniul rapid
+sau Home → Trophies).
+
+- **Persona** scrisă de Claude („French Touch Dreamer”), cu rezumat și trei fapte, plus o **poveste** pe tot ecranul.
+- **Tu vs prietenul**: XP, minute de muzică, filme, jocuri, trofee.
+- Grafice: XP pe zi, **când folosești consola** (zi × oră), top artiști, jocuri, filme văzute.
+- **Provocări săptămânale** (3 pe săptămână, se schimbă lunea), +100 XP fiecare.
+- Graficele urmează reguli de vizualizare: culori verificate pentru daltonism, tooltip pe fiecare element.
+
+## Monitor
+
+Settings → System monitor (sau Cloud Drive): sănătatea Pi-ului **în timp** (ultima oră, 24 de ore, 7 zile):
+CPU, temperatură (cu pragul de 75°C), memorie, rețea, cereri pe minut și erori, plus cine e online, câte sesiuni are
+fiecare profil și **Sign out my other devices**.
+
+- **Jurnal de securitate** (30 de zile): logări, PIN-uri greșite, blocări, acțiuni blocate pentru Guest, limite
+  atinse, telefoane conectate, fișiere urcate/șterse, jocuri instalate.
+- **Alerte** pe ecranele jucătorilor când Pi-ul se încălzește (≥75°C), rămâne fără spațiu (<2 GB) sau fără memorie.
+- Doar pentru jucători; Guest nu are acces.
+
 ## Game Store
 
 Tile-ul **Store** din meniu are 33 de jocuri gratuite și legale, cu poze oficiale, pe care le descarci și le ștergi

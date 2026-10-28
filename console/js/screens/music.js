@@ -8,6 +8,7 @@ import { glyph, icon } from '../icons.js';
 import { lastSource } from '../input.js';
 import { music } from '../music.js';
 import { playArtistRadio, playItem, playSongs } from '../playback.js';
+import { onlineFriend, startParty } from '../together.js';
 import { friendOf, on, store } from '../store.js';
 import { closeOverlay, esc, hints, keyboardPrompt, openOverlay, timeAgo, toast } from '../ui.js';
 
@@ -183,6 +184,7 @@ export default {
         buttons = `<button class="btn primary" data-focus data-act="play">${icon(playing && music.playing ? 'pause' : 'play', 24)} ${playing ? (music.playing ? 'Pause' : 'Resume') : 'Play'}</button>
           ${playing ? '' : `<button class="btn" data-focus data-act="next">${icon('layers', 22)} Play next</button>`}
           <button class="btn" data-focus data-act="radio">${icon('radio', 22)} Song radio</button>
+          ${onlineFriend() && !store.guest ? `<button class="btn" data-focus data-act="together">${icon('users', 22)} Listen together</button>` : ''}
           <button class="icon-btn ${r === 1 ? 'on' : ''}" data-focus data-act="like" title="Like">${icon('thumbUp', 24)}</button>
           <button class="icon-btn ${r === -1 ? 'on' : ''}" data-focus data-act="dislike" title="Not for me">${icon('thumbDown', 24)}</button>`;
       }
@@ -361,6 +363,10 @@ export default {
         else playSongs([item], 0, `${item.title} radio`);
       }
       if (act === 'artist') openArtist(item);
+      if (act === 'together') {
+        if (music.track?.id !== item.id) activate(item, ctx.currentRow?.id);
+        startParty('listen', item);
+      }
       if (act === 'like') rate(item, 1);
       if (act === 'dislike') rate(item, -1);
       if (act === 'share') openShare(item);
